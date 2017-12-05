@@ -1,0 +1,18 @@
+<package format = "2">
+	<name>transform_imu</name>
+	<version>0.1.0</version>
+	<description>
+		Transforms sensor_msgs/Imu messages from a PhidgetSpatial IMU into ENU orientation.
+	</description>
+	<maintainer email="gregjm@umich.edu">Gregory Meyer</maintainer>
+	<license>BSD 3-Clause License</license>
+
+	<url type="repository">https://github.com/umigv/transform_imu</url>
+	<author>Gregory Meyer</author>
+
+	<buildtool_depend>catkin</buildtool_depend>
+
+	<depend>roscpp</depend>
+	<depend>sensor_msgs</depend>
+	<depend>tf2_ros</depend>
+</package>
