@@ -9,17 +9,21 @@ add_definitions(-std=c++14)
 
 project(transform_imu)
 
+find_package(Boost REQUIRED)
+
 find_package(
 	catkin REQUIRED
 	COMPONENTS
 		roscpp
 		sensor_msgs
+		tf2
 		tf2_ros
+		tf2_geometry_msgs
 )
 
 catkin_package()
 
-include_directories(${catkin_INCLUDE_DIRS})
+include_directories(${Boost_INCLUDE_DIRS} ${catkin_INCLUDE_DIRS})
 
 add_executable(transform_imu_node src/transform_imu_node.cpp)
 target_link_libraries(transform_imu_node ${catkin_LIBRARIES})
