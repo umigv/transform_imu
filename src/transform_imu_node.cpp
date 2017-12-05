@@ -10,131 +10,141 @@
 #include <memory>
 #include <utility>
 #include <thread>
-#include <tuple>
-
-inline tf2::Quaternion quaternion_from_message(
-    const geometry_msgs::Quaternion &message
-) {
-    auto converted = tf2::Quaternion{ };
-    tf2::fromMsg(message, converted);
-    return converted;
-}
-
-inline tf2::Vector3 vector_from_message(
-    const geometry_msgs::Vector3 &message
-) {
-    auto converted = tf2::Vector3{ };
-    tf2::fromMsg(message, converted);
-    return converted;
-}
-
-inline boost::array<double, 9> array_from_matrix(
-    const tf2::Matrix3x3 &matrix
-) {
-    return { { matrix[0][0], matrix[0][1], matrix[0][2],
-               matrix[1][0], matrix[1][1], matrix[1][2],
-               matrix[2][0], matrix[2][1], matrix[2][2] } };
-}
-
-inline tf2::Matrix3x3 matrix_from_array(
-    const boost::array<double, 9> &array
-) {
-    return { array[0], array[1], array[2],
-             array[3], array[4], array[5],
-             array[6], array[7], array[8] };
-}
-
-inline tf2::Matrix3x3 rotate_covariance_matrix(
-    const tf2::Matrix3x3 &matrix
-) {
-    return { matrix[1][1], matrix[1][0], matrix[1][2],
-             matrix[0][1], matrix[0][0], matrix[0][2],
-             matrix[2][1], matrix[2][0], matrix[2][2] };
-}
-
-inline tf2::Quaternion rotation_matrix_to_quaternion(
-    const tf2::Matrix3x3 &matrix
-) {
-    auto to_return = tf2::Quaternion{ };
-    matrix.getRotation(to_return);
-    return to_return;
-}
+#include <functional>
 
 class SubscriberCallbackHandler {
 public:
-    SubscriberCallbackHandler(
-        const std::shared_ptr<ros::Publisher> &publisher
-    ) noexcept : publisher_{ publisher } { }
+    SubscriberCallbackHandler(const ros::Publisher &publisher) noexcept
+        : publisher_ptr_{ new ros::Publisher{ publisher } } { }
 
-    void callback(const sensor_msgs::Imu::ConstPtr &data_ptr) const {
-        // this is a linear transformation R^3 -> R^3 that will map linear
-        // coordinates to their proper places
-        static const auto rotation_matrix = tf2::Matrix3x3{ 0, 1, 0,
-                                                            1, 0, 0,
-                                                            0, 0, -1 };
+    void callback(const sensor_msgs::Imu::ConstPtr &message_ptr) const {
+        const auto &message = *message_ptr;
 
         const auto orientation =
-            quaternion_from_message(data_ptr->orientation);
+            transform_quaternion(message_to_quaternion(message.orientation));
         const auto orientation_covariance =
-            matrix_from_array(data_ptr->orientation_covariance);
+            transform_covariance_matrix(
+                array_to_matrix(message.orientation_covariance)
+            );
 
         const auto angular_velocity =
-            vector_from_message(data_ptr->angular_velocity);
+            transform_vector(message_to_vector(message.angular_velocity));
         const auto angular_velocity_covariance =
-            matrix_from_array(data_ptr->angular_velocity_covariance);
+            transform_covariance_matrix(
+                array_to_matrix(message.angular_velocity_covariance)
+            );
 
         const auto linear_acceleration =
-            vector_from_message(data_ptr->linear_acceleration);
+            transform_vector(message_to_vector(message.linear_acceleration));
         const auto linear_acceleration_covariance =
-            matrix_from_array(data_ptr->linear_acceleration_covariance);
-
-        // transformed variables
-        const auto orientation_transformed =
-            static_cast<tf2::Quaternion>(
-                orientation
-                * rotation_matrix_to_quaternion(rotation_matrix)
+            transform_covariance_matrix(
+                array_to_matrix(message.linear_acceleration_covariance)
             );
-        const auto orientation_covariance_transformed =
-            rotate_covariance_matrix(orientation_covariance);
 
-        const auto angular_velocity_transformed =
-            static_cast<tf2::Vector3>(rotation_matrix * angular_velocity);
-        const auto angular_velocity_covariance_transformed =
-            rotate_covariance_matrix(angular_velocity_covariance);
+        const auto transformed_message =
+            make_message(message, orientation, orientation_covariance,
+                         angular_velocity, angular_velocity_covariance,
+                         linear_acceleration, linear_acceleration_covariance);
 
-        const auto linear_acceleration_transformed =
-            static_cast<tf2::Vector3>(
-                rotation_matrix * linear_acceleration
-            );
-        const auto linear_acceleration_covariance_transformed =
-            rotate_covariance_matrix(linear_acceleration_covariance);
-
-        auto transformed_message = sensor_msgs::Imu{ };
-
-        transformed_message.header = data_ptr->header;
-
-        transformed_message.orientation =
-            tf2::toMsg(orientation_transformed);
-        transformed_message.orientation_covariance =
-            array_from_matrix(orientation_covariance_transformed);
-
-        transformed_message.angular_velocity =
-            tf2::toMsg(angular_velocity_transformed);
-        transformed_message.angular_velocity_covariance =
-            array_from_matrix(angular_velocity_covariance_transformed);
-
-        transformed_message.linear_acceleration =
-            tf2::toMsg(linear_acceleration_transformed);
-        transformed_message.linear_acceleration_covariance =
-            array_from_matrix(linear_acceleration_covariance_transformed);
-
-        publisher_->publish(transformed_message);
+        publisher_ptr_->publish(transformed_message);
     }
 
 private:
+    inline static sensor_msgs::Imu make_message(
+        const sensor_msgs::Imu &transforming,
+        const tf2::Quaternion &orientation,
+        const tf2::Matrix3x3 &orientation_covariance,
+        const tf2::Vector3 &angular_velocity,
+        const tf2::Matrix3x3 &angular_velocity_covariance,
+        const tf2::Vector3 &linear_acceleration,
+        const tf2::Matrix3x3 &linear_acceleration_covariance
+    ) {
+        auto transformed = sensor_msgs::Imu{ };
+
+        transformed.header = transforming.header;
+
+        transformed.orientation = tf2::toMsg(orientation);
+        transformed.orientation_covariance =
+            matrix_to_array(orientation_covariance);
+
+        transformed.angular_velocity = tf2::toMsg(angular_velocity);
+        transformed.angular_velocity_covariance =
+            matrix_to_array(angular_velocity_covariance);
+
+        transformed.linear_acceleration = tf2::toMsg(linear_acceleration);
+        transformed.linear_acceleration_covariance =
+            matrix_to_array(linear_acceleration_covariance);
+
+        return transformed;
+    }
+
+    inline static tf2::Quaternion message_to_quaternion(
+        const geometry_msgs::Quaternion &message
+    ) {
+        auto converted = tf2::Quaternion{ };
+        tf2::fromMsg(message, converted);
+        return converted;
+    }
+
+    inline static tf2::Vector3 message_to_vector(
+        const geometry_msgs::Vector3 &message
+    ) {
+        auto converted = tf2::Vector3{ };
+        tf2::fromMsg(message, converted);
+        return converted;
+    }
+
+    inline static boost::array<double, 9> matrix_to_array(
+        const tf2::Matrix3x3 &matrix
+    ) noexcept {
+        return { { matrix[0][0], matrix[0][1], matrix[0][2],
+                   matrix[1][0], matrix[1][1], matrix[1][2],
+                   matrix[2][0], matrix[2][1], matrix[2][2] } };
+    }
+
+    inline static tf2::Matrix3x3 array_to_matrix(
+        const boost::array<double, 9> &array
+    ) {
+        return { array[0], array[1], array[2],
+                 array[3], array[4], array[5],
+                 array[6], array[7], array[8] };
+    }
+
+    // swaps x and y rows + columns, keeps z the same since covariance is positive
+    inline static tf2::Matrix3x3 transform_covariance_matrix(
+        const tf2::Matrix3x3 &matrix
+    ) {
+        return { matrix[1][1], matrix[1][0], matrix[1][2],
+                 matrix[0][1], matrix[0][0], matrix[0][2],
+                 matrix[2][1], matrix[2][0], matrix[2][2] };
+    }
+
+    inline static tf2::Vector3 transform_vector(const tf2::Vector3 &vector) {
+        return transform_ * vector;
+    }
+
+    inline static tf2::Quaternion transform_quaternion(
+        const tf2::Quaternion &quaternion
+    ) {
+        return transform_ * quaternion;
+    }
+
     // this is a shared_ptr for thread safety
-    std::shared_ptr<ros::Publisher> publisher_;
+    std::shared_ptr<ros::Publisher> publisher_ptr_;
+
+    // this is a orthonormal transformation R^3 -> R^3
+    // it will map:
+    // (1, 0, 0) -> (0, 1, 0)
+    // (0, 1, 0) -> (1, 0, 0)
+    // (0, 0, 1) -> (0, 0, -1)
+    // such that it swaps x and y and negates z
+    static const tf2::Transform transform_;
 };
+
+const tf2::Transform SubscriberCallbackHandler::transform_ =
+    tf2::Transform{ tf2::Matrix3x3{ 0,  1,  0,
+                                    1,  0,  0,
+                                    0,  0, -1 } };
 
 int main(int argc, char *argv[]) {
     ros::init(argc, argv, "transform_imu_node");
@@ -142,17 +152,11 @@ int main(int argc, char *argv[]) {
 
     auto publisher =
         handle.advertise<sensor_msgs::Imu>("imu/data_transformed", 1000);
-    auto publisher_ptr =
-        std::shared_ptr<ros::Publisher>{
-            new ros::Publisher{ publisher }
-        };
-    auto handler = SubscriberCallbackHandler{ publisher_ptr };
-    auto subscriber = handle.subscribe<sensor_msgs::Imu>(
-        "imu/data",
-        1000,
-        &SubscriberCallbackHandler::callback,
-        &handler
-    );
+    auto handler = SubscriberCallbackHandler{ publisher };
+    auto subscriber =
+        handle.subscribe<sensor_msgs::Imu>("imu/data", 1000,
+                                           &SubscriberCallbackHandler::callback,
+                                           &handler);
 
     auto spinner =
         ros::AsyncSpinner{ std::thread::hardware_concurrency() };
