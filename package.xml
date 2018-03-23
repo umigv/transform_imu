@@ -1,8 +1,8 @@
 <package format = "2">
 	<name>transform_imu</name>
-	<version>0.1.0</version>
+	<version>0.2.0</version>
 	<description>
-		Transforms sensor_msgs/Imu messages from a PhidgetSpatial IMU into ENU orientation.
+		Transforms Imu and MagneticField messages from NED to ENU.
 	</description>
 	<maintainer email="gregjm@umich.edu">Gregory Meyer</maintainer>
 	<license>BSD 3-Clause License</license>
@@ -14,9 +14,8 @@
 
 	<depend>roscpp</depend>
 	<depend>sensor_msgs</depend>
-	<depend>tf2</depend>
-	<depend>tf2_ros</depend>
 	<depend>tf2_geometry_msgs</depend>
-
-	<build_depend>libboost-dev</build_depend>
+	<depend>tf2_ros</depend>
+	<depend>tf2</depend>
+	<depend>umigv_utilities</depend>
 </package>
