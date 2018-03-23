@@ -10,8 +10,8 @@ find_package(catkin REQUIRED
 	         COMPONENTS roscpp sensor_msgs tf2_geometry_msgs
 			 			tf2_ros tf2 umigv_utilities)
 
-catkin_package(CATKIN_DEPENDS roscpp sensor_msgs tf2_geometry_msgs,
-						      tf2_ros, tf2, umigv_utilities)
+catkin_package(CATKIN_DEPENDS roscpp sensor_msgs tf2_geometry_msgs
+						      tf2_ros tf2 umigv_utilities)
 
 include_directories(${catkin_INCLUDE_DIRS})
 

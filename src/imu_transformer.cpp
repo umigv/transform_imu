@@ -1,6 +1,7 @@
 #include "imu_transformer.h"
 
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h> // tf2::fromMsg, tf2::toMsg
+#include <umigv_utilities/types.hpp>
 
 using namespace umigv::types;
 
@@ -58,7 +59,9 @@ transform_matrix(const boost::array<f64, 9> &matrix) {
 
 namespace umigv {
 
-void ImuTransformer::transform_imu(const sensor_msgs::Imu &imu) {
+void ImuTransformer::transform_imu(const sensor_msgs::Imu::ConstPtr &imu_ptr) {
+    const sensor_msgs::Imu &imu = *imu_ptr;
+
     sensor_msgs::Imu transformed;
 
     transformed.header = transform_header(imu.header);
@@ -80,12 +83,16 @@ void ImuTransformer::transform_imu(const sensor_msgs::Imu &imu) {
 }
 
 void ImuTransformer::transform_magnetic_field(
-    const sensor_msgs::MagneticField &field
+    const sensor_msgs::MagneticField::ConstPtr &field_ptr
 ) {
+    const sensor_msgs::MagneticField &field = *field_ptr;
+
     sensor_msgs::MagneticField transformed;
 
     transformed.header = transform_header(field.header);
-    transformed.vector = transform_vector3(field.vector);
+    transformed.magnetic_field = transform_vector3(field.magnetic_field);
+    transformed.magnetic_field_covariance =
+        transform_matrix(field.magnetic_field_covariance);
 
     field_publisher().publish(transformed);
 }
@@ -95,8 +102,8 @@ ImuTransformer::transform_header(const std_msgs::Header &header) const {
     std_msgs::Header transformed;
 
     transformed.seq = header.seq;
-    transformed.header.stamp = header.stamp;
-    transformed.header.frame_id = frame_id();
+    transformed.stamp = header.stamp;
+    transformed.frame_id = frame_id();
 
     return transformed;
 }
