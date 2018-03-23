@@ -16,4 +16,4 @@ Clone this repository into your `catkin` workspace, then run `catkin_make_isolat
 
 ## Contributors
 
-`umigv_utilities` is authored and maintained by Gregory Meyer.
+`transform_imu` is authored and maintained by Gregory Meyer.
