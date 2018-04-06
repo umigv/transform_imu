@@ -72,7 +72,7 @@ void ImuTransformer::transform_imu(const sensor_msgs::Imu::ConstPtr &imu_ptr) {
 
     transformed.angular_velocity = transform_vector3(imu.angular_velocity);
     transformed.angular_velocity_covariance =
-        transform_matrix(imu.orientation_covariance);
+        transform_matrix(imu.angular_velocity_covariance);
 
     transformed.linear_acceleration =
         transform_vector3(imu.linear_acceleration);
